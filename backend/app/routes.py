@@ -26,7 +26,6 @@ def search():
         return jsonify({'error': 'areas moet een lijst zijn.'}), 400
 
     # Optionele validatie van de inhoud van company_types en areas
-    # Bijvoorbeeld, controleren of de waarden binnen een toegestane set vallen
     allowed_company_types = {'software', 'consultancy', 'hardware', 'services'}
     allowed_areas = {'centrum', 'westelijk deel', 'noordelijk deel', 'zuidelijk deel'}
 
@@ -50,12 +49,26 @@ def search():
         existing_company = Company.query.filter_by(name=company_info['name']).first()
         if not existing_company:
             # Voeg nieuw bedrijf toe aan de database
-            new_company = Company(name=company_info['name'], contact=company_info['contact'])
+            new_company = Company(
+                name=company_info['name'],
+                contact=company_info['contact'],
+                contact_form_url=company_info.get('contact_form_url')  # Voeg contact_form_url toe
+            )
             db.session.add(new_company)
             db.session.commit()
-            companies.append({'id': new_company.id, 'name': new_company.name, 'contact': new_company.contact})
+            companies.append({
+                'id': new_company.id,
+                'name': new_company.name,
+                'contact': new_company.contact,
+                'contact_form_url': new_company.contact_form_url  # Voeg contact_form_url toe
+            })
         else:
-            companies.append({'id': existing_company.id, 'name': existing_company.name, 'contact': existing_company.contact})
+            companies.append({
+                'id': existing_company.id,
+                'name': existing_company.name,
+                'contact': existing_company.contact,
+                'contact_form_url': existing_company.contact_form_url  # Voeg contact_form_url toe
+            })
 
     return jsonify({'companies': companies}), 200
 
@@ -74,18 +87,30 @@ def contact():
         return jsonify({'error': 'Bedrijf niet gevonden.'}), 404
 
     # Validatie van contact_method
-    allowed_methods = {'email', 'whatsapp', 'call'}
+    allowed_methods = {'email', 'whatsapp', 'call', 'contact_form'}
     if contact_method.lower() not in allowed_methods:
         return jsonify({'error': f'Ongeldige contactmethode: {contact_method}.'}), 400
 
     # Initiëer contact
     try:
-        initiate_contact({'name': company.name, 'contact': company.contact}, contact_method.lower())
+        if contact_method.lower() == 'contact_form':
+            contact_url = company.contact_form_url
+            if not contact_url:
+                return jsonify({'error': 'Geen contactformulier beschikbaar voor dit bedrijf.'}), 404
+            # Voor contact_form, retourneer de URL naar de frontend
+            return jsonify({'status': 'Contactformulier beschikbaar.', 'contact_form_url': contact_url}), 200
+        else:
+            initiate_contact({'name': company.name, 'contact': company.contact}, contact_method.lower())
     except Exception as e:
         return jsonify({'error': f'Fout bij het initiëren van contact: {str(e)}'}), 500
 
     # Log de contactpoging
-    contact_log = Contact(company_id=company.id, method=contact_method.lower(), status='Initiated', timestamp=datetime.utcnow())
+    contact_log = Contact(
+        company_id=company.id,
+        method=contact_method.lower(),
+        status='Initiated',
+        timestamp=datetime.utcnow()
+    )
     db.session.add(contact_log)
     db.session.commit()
 
