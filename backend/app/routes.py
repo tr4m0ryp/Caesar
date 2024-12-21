@@ -1,7 +1,9 @@
+# ai-contact-finder/backend/app/routes.py
+
 from flask import request, jsonify
 from . import db
 from .models import Company, Contact
-from .scraper import scrape_companies
+from .scraper import scrape_companies_wrapper
 from .contact_tools import initiate_contact
 from datetime import datetime
 import logging
@@ -33,7 +35,7 @@ def search():
         return jsonify({'error': 'Alle areas moeten niet-lege strings zijn.'}), 400
 
     # Scrape bedrijven op basis van stad, branche, bedrijfstypes en gebieden
-    companies_data = scrape_companies(city, industry, company_types, areas)
+    companies_data = scrape_companies_wrapper(city, industry, company_types, areas)
 
     if not companies_data:
         return jsonify({'message': 'Geen bedrijven gevonden met de opgegeven criteria.'}), 404
@@ -42,12 +44,12 @@ def search():
     for company_info in companies_data:
         try:
             # Controleer of het bedrijf al bestaat in de database
-            existing_company = Company.query.filter_by(name=company_info['name']).first()
+            existing_company = Company.query.filter_by(name=company_info.get('name')).first()
             if not existing_company:
                 # Voeg nieuw bedrijf toe aan de database
                 new_company = Company(
-                    name=company_info['name'],
-                    contact=company_info['contact'],
+                    name=company_info.get('name'),
+                    contact=company_info.get('contact'),
                     contact_form_url=company_info.get('contact_form_url'),
                     linkedin_profile=company_info.get('linkedin_profile'),
                     twitter_handle=company_info.get('twitter_handle'),
@@ -78,7 +80,7 @@ def search():
                     'live_chat_url': existing_company.live_chat_url
                 })
         except Exception as e:
-            logger.error(f"Fout bij verwerken van bedrijf '{company_info['name']}': {e}")
+            logger.error(f"Fout bij verwerken van bedrijf '{company_info.get('name', 'onbekend')}': {e}")
             continue
 
     return jsonify({'companies': companies}), 200
