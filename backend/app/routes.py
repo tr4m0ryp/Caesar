@@ -137,8 +137,7 @@ def contact():
                 'contact': company.contact,
                 'linkedin_profile': company.linkedin_profile,
                 'twitter_handle': company.twitter_handle,
-                'telegram_handle': company.telegram_handle,
-                'phone': company.contact  # Zorg ervoor dat 'contact' het juiste telefoonnummer bevat
+                'telegram_handle': company.telegram_handle
             }, contact_method_lower)
             logger.info(f"Contactpoging gestart voor bedrijf ID: {company_id} via {contact_method_lower}")
     except Exception as e:
