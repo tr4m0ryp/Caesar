@@ -13,23 +13,6 @@ from functools import lru_cache
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-def load_config():
-    config_path = os.path.join(os.path.dirname(__file__), 'config.json')
-    try:
-        with open(config_path, 'r', encoding='utf-8') as config_file:
-            config = json.load(config_file)
-        logger.info("Configuratie succesvol geladen.")
-        return config
-    except FileNotFoundError:
-        logger.error(f"Configuratiebestand niet gevonden: {config_path}")
-        return {}
-    except json.JSONDecodeError as e:
-        logger.error(f"Fout bij het parsen van configuratiebestand: {e}")
-        return {}
-
-# Laden van configuratie bij module import
-CONFIG = load_config()
-
 def call_gemini_api(prompt: str, retries: int = 3, backoff: int = 5) -> str:
     gemini_api_key = os.getenv("GEMINI_API_KEY")
     gemini_endpoint = os.getenv("GEMINI_ENDPOINT", "https://api.gemini.example.com/v1/generate")
@@ -57,7 +40,7 @@ def call_gemini_api(prompt: str, retries: int = 3, backoff: int = 5) -> str:
         except requests.exceptions.Timeout:
             logger.warning(f"Timeout bij poging {attempt + 1} van {retries}. Opnieuw proberen in {backoff} seconden...")
         except requests.exceptions.RequestException as e:
-            if hasattr(e, 'response') and e.response and e.response.status_code == 429:
+            if e.response and e.response.status_code == 429:
                 retry_after = int(e.response.headers.get("Retry-After", backoff))
                 logger.warning(f"Rate limit bereikt. Wachten {retry_after} seconden...")
                 time.sleep(retry_after)
@@ -253,8 +236,12 @@ def find_extras_by_search(name: str, field: str) -> str:
             return link
     return None
 
-def scrape_companies(city: str, industry: str, company_types: list, areas: list, google_api_key: str) -> list:
-    # Scrape bedrijven via Google Places API
+def hybrid_scraper(user_input: str, google_api_key: str, scrape_search: bool = True) -> dict:
+    parsed = parse_user_input(user_input)
+    city = parsed["city"]
+    industry = parsed["industry"]
+    area = parsed["area"]
+    # Combine area with city for geocoding if necessary
     places_data = scrape_google_places(city, industry, google_api_key)
     final_data = []
     for place in places_data:
@@ -277,8 +264,7 @@ def scrape_companies(city: str, industry: str, company_types: list, areas: list,
         # Combineer de gegevens
         combined = {**place, **website_data, **missing}
         final_data.append(combined)
-    return final_data
-
-def scrape_companies_wrapper(city: str, industry: str, company_types: list, areas: list) -> list:
-    google_api_key = os.getenv("GOOGLE_API_KEY")
-    return scrape_companies(city, industry, company_types, areas, google_api_key)
+    return {
+        "parsed_input": parsed,
+        "results": final_data
+    }
