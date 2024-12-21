@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="nl">
+  <head>
+    <meta charset="utf-8" />
+    <title>CAESAR - Contact Finder</title>
+    <meta
+      name="description"
+      content="CAESAR is de moderne tool voor het automatisch vinden van bedrijven en het leggen van contact."
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Google Fonts (bijvoorbeeld 'Inter'); pas aan naar wens -->
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
+
+    <!-- Favicon -->
+    <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
+
+    <!-- Voorbeeld van een minimale global style -->
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      html, body {
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: 'Inter', sans-serif;
+        background-color: #F9FAFB; /* Zacht grijstint */
+        color: #111827; /* Donkergrijs/zwart */
+      }
+      /* Eventueel een basiskleur of themakleur instellen (bijvoorbeeld blauw) */
+      :root {
+        --caesar-primary: #3B82F6; /* Tailwind 'blue-500' als voorbeeld */
+      }
+      /* Placeholder-stijl voor (pre)loading, indien je dat wilt */
+      .caesar-loading {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+        font-size: 1.25rem;
+        color: var(--caesar-primary);
+      }
+    </style>
+  </head>
+
+  <body>
+    <noscript>JavaScript is uitgeschakeld in je browser, waardoor CAESAR niet kan functioneren.</noscript>
+
+    <!-- Eventueel een loading-div die verdwijnt zodra React geladen is -->
+    <div id="root" class="caesar-loading">
+      <p>CAESAR wordt geladen...</p>
+    </div>
+    <!-- React mount hier via src/index.js -->
+  </body>
+</html>
