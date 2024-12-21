@@ -1,0 +1,99 @@
+/* ai-contact-finder/frontend/src/index.css */
+
+/* 1. Basis: Tailwind's reset en basisstijlen */
+@tailwind base;
+
+/* Eventueel kun je hier kleine overrides doen op de HTML/body-tag */
+html {
+  scroll-behavior: smooth; /* Soepel scrollen bij ankers en navigatie */
+}
+
+body {
+  /* Stel een basislettertype, achtergrond en tekstkleur in */
+  font-family: 'Inter', sans-serif; /* Pas aan naar jouw favoriete Google Font */
+  background-color: #F9FAFB; /* Zachtgrijs, modern tintje */
+  color: #111827; /* Donkergrijs voor tekst i.p.v. puur zwart */
+}
+
+/* 2. Component-stijlen van Tailwind */
+@tailwind components;
+
+/* 3. Utility-klassen van Tailwind */
+@tailwind utilities;
+
+/* =====================
+   CUSTOM CLASSES
+   ===================== */
+
+/* Container-utility om standaard 'max-width' en padding toe te passen */
+.caesar-container {
+  @apply max-w-7xl mx-auto px-4;
+}
+
+/* Een card-achtige utility: witte achtergrond, schaduw, afronding */
+.caesar-card {
+  @apply bg-white p-4 rounded shadow-sm 
+         hover:shadow-md 
+         transition-shadow 
+         duration-200;
+}
+
+/* Stijlen voor een primaire button, met hover-transition */
+.caesar-button {
+  @apply inline-block 
+         bg-blue-600 
+         text-white 
+         font-medium 
+         px-4 
+         py-2 
+         rounded-md 
+         hover:bg-blue-700 
+         transition-colors 
+         duration-200;
+}
+
+/* Variant voor secundaire button (bijvoorbeeld grijs getint) */
+.caesar-button-secondary {
+  @apply inline-block 
+         bg-gray-200
+         text-gray-800
+         font-medium
+         px-4
+         py-2
+         rounded-md
+         hover:bg-gray-300
+         transition-colors
+         duration-200;
+}
+
+/* Stijlen voor inputvelden met focus-states */
+.caesar-input {
+  @apply w-full 
+         rounded 
+         border 
+         border-gray-300 
+         px-3 
+         py-2 
+         focus:outline-none 
+         focus:ring-2 
+         focus:ring-blue-500 
+         focus:border-transparent;
+}
+
+/* Meldingsbox voor succes (groene achtergrond, groene border) */
+.caesar-alert-success {
+  @apply mb-4 p-3 
+         bg-green-50 
+         border border-green-200 
+         text-green-700 
+         rounded;
+}
+
+/* Meldingsbox voor fouten (rode achtergrond, rode border) */
+.caesar-alert-error {
+  @apply mb-4 p-3 
+         bg-red-50 
+         border border-red-200 
+         text-red-700 
+         rounded;
+}
