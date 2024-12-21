@@ -1,0 +1,14 @@
+{
+    "base_url": "https://www.voorbeeld-directory.nl/search",
+    "allowed_company_types": ["kledingwinkel", "timmermannen", "software", "consultancy"],
+    "allowed_areas": ["centrum", "bedrijfsterrein", "westelijk deel", "noordelijk deel", "zuidelijk deel"],
+    "pagination_selector": "a.next-page",
+    "company_selector": "div.company-listing",
+    "name_selector": "h2.company-name",
+    "contact_selector": "span.contact-email",
+    "contact_form_selector": "a.contact-form",
+    "linkedin_selector": "a.linkedin",
+    "twitter_selector": "a.twitter",
+    "telegram_selector": "a.telegram",
+    "live_chat_selector": "a.live-chat"
+}
