@@ -1,3 +1,4 @@
+# ai-contact-finder/backend/app/scraper.py
 
 import os
 import time
@@ -12,7 +13,7 @@ from functools import lru_cache
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-def call_gemini_api(prompt, retries=3, backoff=5):
+def call_gemini_api(prompt: str, retries: int = 3, backoff: int = 5) -> str:
     gemini_api_key = os.getenv("GEMINI_API_KEY")
     gemini_endpoint = os.getenv("GEMINI_ENDPOINT", "https://api.gemini.example.com/v1/generate")
 
@@ -39,8 +40,8 @@ def call_gemini_api(prompt, retries=3, backoff=5):
         except requests.exceptions.Timeout:
             logger.warning(f"Timeout bij poging {attempt + 1} van {retries}. Opnieuw proberen in {backoff} seconden...")
         except requests.exceptions.RequestException as e:
-            if response.status_code == 429:
-                retry_after = int(response.headers.get("Retry-After", backoff))
+            if e.response and e.response.status_code == 429:
+                retry_after = int(e.response.headers.get("Retry-After", backoff))
                 logger.warning(f"Rate limit bereikt. Wachten {retry_after} seconden...")
                 time.sleep(retry_after)
             else:
@@ -50,7 +51,7 @@ def call_gemini_api(prompt, retries=3, backoff=5):
     logger.error("Alle pogingen om de Gemini API te bereiken zijn mislukt.")
     return "{}"
 
-def parse_user_input(user_input):
+def parse_user_input(user_input: str) -> dict:
     try:
         full_prompt = (
             f"Ontleed de volgende tekst:\n"
@@ -74,7 +75,7 @@ def parse_user_input(user_input):
         return {"city": "onbekend", "industry": "onbekend", "area": "onbekend"}
 
 @lru_cache(maxsize=100)
-def geocode_city(city, api_key):
+def geocode_city(city: str, api_key: str) -> dict:
     gmaps_client = googlemaps.Client(key=api_key)
     try:
         geocode_result = gmaps_client.geocode(city)
@@ -85,19 +86,23 @@ def geocode_city(city, api_key):
         logger.error(f"Fout bij geocoding: {e}")
         return None
 
-def scrape_google_places(city, industry, api_key, radius=5000):
+def scrape_google_places(city: str, industry: str, api_key: str, radius: int = 5000) -> list:
     if not api_key:
         logger.warning("Geen Google Places API key.")
         return []
     location = geocode_city(city, api_key)
     if not location:
+        logger.error(f"Geocoding mislukt voor stad: {city}")
         return []
 
     latlng = (location["lat"], location["lng"])
 
     results = []
+    gmaps_client = googlemaps.Client(key=api_key)
+
     try:
-        places_response = googlemaps.Client(key=api_key).places_nearby(
+        logger.info(f"Zoeken naar plaatsen: {industry} in {city}")
+        places_response = gmaps_client.places_nearby(
             location=latlng, radius=radius, keyword=industry
         )
     except Exception as e:
@@ -109,14 +114,14 @@ def scrape_google_places(city, industry, api_key, radius=5000):
             place_id = place.get("place_id")
             name = place.get("name")
             address = place.get("vicinity")
-            rating = place.get("rating") or float('nan')
+            rating = place.get("rating", None)
             try:
-                details = googlemaps.Client(key=api_key).place(place_id=place_id).get("result", {})
-                phone = details.get("formatted_phone_number", float('nan'))
-                website = details.get("website", float('nan'))
+                details = gmaps_client.place(place_id=place_id).get("result", {})
+                phone = details.get("formatted_phone_number")
+                website = details.get("website")
             except Exception as e:
                 logger.error(f"Fout bij het ophalen van details voor '{name}': {e}")
-                phone, website = float('nan'), float('nan')
+                phone, website = None, None
 
             results.append({
                 "name": name,
@@ -130,9 +135,11 @@ def scrape_google_places(city, industry, api_key, radius=5000):
         next_token = places_response.get("next_page_token")
         if not next_token:
             break
-        time.sleep(2)
+        logger.info("Ophalen van volgende pagina resultaten...")
+        time.sleep(2)  # Wachten op de volgende pagina token
+
         try:
-            places_response = googlemaps.Client(key=api_key).places_nearby(
+            places_response = gmaps_client.places_nearby(
                 location=latlng,
                 radius=radius,
                 keyword=industry,
@@ -148,25 +155,26 @@ def scrape_google_places(city, industry, api_key, radius=5000):
             break
     return results
 
-def scrape_website(url):
+def scrape_website(url: str) -> dict:
     if not url:
         return {
-            "contact_form_url": float('nan'),
-            "linkedin_profile": float('nan'),
-            "twitter_handle": float('nan'),
-            "telegram_handle": float('nan'),
-            "live_chat_url": float('nan')
+            "contact_form_url": None,
+            "linkedin_profile": None,
+            "twitter_handle": None,
+            "telegram_handle": None,
+            "live_chat_url": None
         }
     try:
+        logger.info(f"Scrapen van website: {url}")
         resp = requests.get(url, timeout=10)
         resp.raise_for_status()
         soup = BeautifulSoup(resp.text, "html.parser")
         data = {
-            "contact_form_url": float('nan'),
-            "linkedin_profile": float('nan'),
-            "twitter_handle": float('nan'),
-            "telegram_handle": float('nan'),
-            "live_chat_url": float('nan')
+            "contact_form_url": None,
+            "linkedin_profile": None,
+            "twitter_handle": None,
+            "telegram_handle": None,
+            "live_chat_url": None
         }
         for link in soup.find_all("a", href=True):
             href = link["href"]
@@ -188,14 +196,14 @@ def scrape_website(url):
     except Exception as e:
         logger.error(f"Fout bij het scrapen van {url}: {e}")
         return {
-            "contact_form_url": float('nan'),
-            "linkedin_profile": float('nan'),
-            "twitter_handle": float('nan'),
-            "telegram_handle": float('nan'),
-            "live_chat_url": float('nan')
+            "contact_form_url": None,
+            "linkedin_profile": None,
+            "twitter_handle": None,
+            "telegram_handle": None,
+            "live_chat_url": None
         }
 
-def google_search(query, num_pages=1):
+def google_search(query: str, num_pages: int = 1) -> list:
     session = requests.Session()
     session.headers.update({
         "User-Agent": "Mozilla/5.0",
@@ -205,6 +213,7 @@ def google_search(query, num_pages=1):
     for page in range(num_pages):
         params = {"q": query, "start": page * 10}
         try:
+            logger.info(f"Google zoeken: {query}, pagina {page + 1}")
             r = session.get("https://www.google.com/search", params=params, timeout=10)
             r.raise_for_status()
             soup = BeautifulSoup(r.text, "html.parser")
@@ -219,34 +228,40 @@ def google_search(query, num_pages=1):
             break
     return results
 
-def find_extras_by_search(name, field):
+def find_extras_by_search(name: str, field: str) -> str:
     query = f"{name} {field}"
     links = google_search(query, num_pages=1)
     for link in links:
         if field in link.lower():
             return link
-    return float('nan')
+    return None
 
-def hybrid_scraper(user_input, google_api_key, scrape_search=True):
+def hybrid_scraper(user_input: str, google_api_key: str, scrape_search: bool = True) -> dict:
     parsed = parse_user_input(user_input)
     city = parsed["city"]
     industry = parsed["industry"]
+    area = parsed["area"]
+    # Combine area with city for geocoding if necessary
     places_data = scrape_google_places(city, industry, google_api_key)
     final_data = []
     for place in places_data:
-        website_data = scrape_website(place["website"])
+        website_data = scrape_website(place.get("website"))
+        # Zoek naar ontbrekende gegevens via Google Search
         missing = {}
-        for key, val in website_data.items():
-            if not val:
-                if key == "linkedin_profile":
-                    found = find_extras_by_search(place["name"], "linkedin")
-                    missing[key] = found if found else float('nan')
-                if key == "twitter_handle":
-                    found = find_extras_by_search(place["name"], "twitter")
-                    missing[key] = found if found else float('nan')
-                if key == "telegram_handle":
-                    found = find_extras_by_search(place["name"], "telegram")
-                    missing[key] = found if found else float('nan')
+        if not website_data.get("linkedin_profile"):
+            found = find_extras_by_search(place.get("name"), "linkedin")
+            missing["linkedin_profile"] = found
+        if not website_data.get("twitter_handle"):
+            found = find_extras_by_search(place.get("name"), "twitter")
+            missing["twitter_handle"] = found
+        if not website_data.get("telegram_handle"):
+            found = find_extras_by_search(place.get("name"), "telegram")
+            missing["telegram_handle"] = found
+        if not website_data.get("live_chat_url"):
+            found = find_extras_by_search(place.get("name"), "live chat")
+            missing["live_chat_url"] = found
+
+        # Combineer de gegevens
         combined = {**place, **website_data, **missing}
         final_data.append(combined)
     return {
