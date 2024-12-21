@@ -4,6 +4,9 @@ from .models import Company, Contact
 from .scraper import scrape_companies
 from .contact_tools import initiate_contact
 from datetime import datetime
+import logging
+
+logger = logging.getLogger(__name__)
 
 @app.route('/search', methods=['POST'])
 def search():
@@ -37,42 +40,46 @@ def search():
 
     companies = []
     for company_info in companies_data:
-        # Controleer of het bedrijf al bestaat in de database
-        existing_company = Company.query.filter_by(name=company_info['name']).first()
-        if not existing_company:
-            # Voeg nieuw bedrijf toe aan de database
-            new_company = Company(
-                name=company_info['name'],
-                contact=company_info['contact'],
-                contact_form_url=company_info.get('contact_form_url'),
-                linkedin_profile=company_info.get('linkedin_profile'),
-                twitter_handle=company_info.get('twitter_handle'),
-                telegram_handle=company_info.get('telegram_handle'),
-                live_chat_url=company_info.get('live_chat_url')
-            )
-            db.session.add(new_company)
-            db.session.commit()
-            companies.append({
-                'id': new_company.id,
-                'name': new_company.name,
-                'contact': new_company.contact,
-                'contact_form_url': new_company.contact_form_url,
-                'linkedin_profile': new_company.linkedin_profile,
-                'twitter_handle': new_company.twitter_handle,
-                'telegram_handle': new_company.telegram_handle,
-                'live_chat_url': new_company.live_chat_url
-            })
-        else:
-            companies.append({
-                'id': existing_company.id,
-                'name': existing_company.name,
-                'contact': existing_company.contact,
-                'contact_form_url': existing_company.contact_form_url,
-                'linkedin_profile': existing_company.linkedin_profile,
-                'twitter_handle': existing_company.twitter_handle,
-                'telegram_handle': existing_company.telegram_handle,
-                'live_chat_url': existing_company.live_chat_url
-            })
+        try:
+            # Controleer of het bedrijf al bestaat in de database
+            existing_company = Company.query.filter_by(name=company_info['name']).first()
+            if not existing_company:
+                # Voeg nieuw bedrijf toe aan de database
+                new_company = Company(
+                    name=company_info['name'],
+                    contact=company_info['contact'],
+                    contact_form_url=company_info.get('contact_form_url'),
+                    linkedin_profile=company_info.get('linkedin_profile'),
+                    twitter_handle=company_info.get('twitter_handle'),
+                    telegram_handle=company_info.get('telegram_handle'),
+                    live_chat_url=company_info.get('live_chat_url')
+                )
+                db.session.add(new_company)
+                db.session.commit()
+                companies.append({
+                    'id': new_company.id,
+                    'name': new_company.name,
+                    'contact': new_company.contact,
+                    'contact_form_url': new_company.contact_form_url,
+                    'linkedin_profile': new_company.linkedin_profile,
+                    'twitter_handle': new_company.twitter_handle,
+                    'telegram_handle': new_company.telegram_handle,
+                    'live_chat_url': new_company.live_chat_url
+                })
+            else:
+                companies.append({
+                    'id': existing_company.id,
+                    'name': existing_company.name,
+                    'contact': existing_company.contact,
+                    'contact_form_url': existing_company.contact_form_url,
+                    'linkedin_profile': existing_company.linkedin_profile,
+                    'twitter_handle': existing_company.twitter_handle,
+                    'telegram_handle': existing_company.telegram_handle,
+                    'live_chat_url': existing_company.live_chat_url
+                })
+        except Exception as e:
+            logger.error(f"Fout bij verwerken van bedrijf '{company_info['name']}': {e}")
+            continue
 
     return jsonify({'companies': companies}), 200
 
@@ -92,12 +99,13 @@ def contact():
 
     # Validatie van contact_method
     allowed_methods = {'email', 'whatsapp', 'call', 'contact_form', 'linkedin', 'twitter', 'sms', 'telegram', 'live_chat'}
-    if contact_method.lower() not in allowed_methods:
+    contact_method_lower = contact_method.lower()
+    if contact_method_lower not in allowed_methods:
         return jsonify({'error': f'Ongeldige contactmethode: {contact_method}.'}), 400
 
     # Initiëer contact
     try:
-        if contact_method.lower() == 'contact_form':
+        if contact_method_lower in {'contact_form', 'live_chat'}:
             contact_url = company.live_chat_url or company.contact_form_url  # Gebruik live_chat_url indien beschikbaar
             if not contact_url:
                 return jsonify({'error': 'Geen contactformulier of live chat beschikbaar voor dit bedrijf.'}), 404
@@ -110,18 +118,22 @@ def contact():
                 'linkedin_profile': company.linkedin_profile,
                 'twitter_handle': company.twitter_handle,
                 'telegram_handle': company.telegram_handle
-            }, contact_method.lower())
+            }, contact_method_lower)
     except Exception as e:
+        logger.error(f"Fout bij het initiëren van contact voor bedrijf ID {company_id}: {e}")
         return jsonify({'error': f'Fout bij het initiëren van contact: {str(e)}'}), 500
 
     # Log de contactpoging
-    contact_log = Contact(
-        company_id=company.id,
-        method=contact_method.lower(),
-        status='Initiated',
-        timestamp=datetime.utcnow()
-    )
-    db.session.add(contact_log)
-    db.session.commit()
+    try:
+        contact_log = Contact(
+            company_id=company.id,
+            method=contact_method_lower,
+            status='Initiated',
+            timestamp=datetime.utcnow()
+        )
+        db.session.add(contact_log)
+        db.session.commit()
+    except Exception as e:
+        logger.error(f"Fout bij het loggen van contactpoging voor bedrijf ID {company_id}: {e}")
 
     return jsonify({'status': 'Contactpoging succesvol gestart.'}), 200
