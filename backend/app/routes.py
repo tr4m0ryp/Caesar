@@ -1,5 +1,3 @@
-# ai-contact-finder/backend/app/routes.py
-
 from flask import request, jsonify
 from . import db
 from .models import Company, Contact
@@ -25,17 +23,11 @@ def search():
     if not isinstance(areas, list):
         return jsonify({'error': 'areas moet een lijst zijn.'}), 400
 
-    # Optionele validatie van de inhoud van company_types en areas
-    allowed_company_types = {'software', 'consultancy', 'hardware', 'services'}
-    allowed_areas = {'centrum', 'westelijk deel', 'noordelijk deel', 'zuidelijk deel'}
-
-    invalid_company_types = [ct for ct in company_types if ct.lower() not in allowed_company_types]
-    invalid_areas = [ar for ar in areas if ar.lower() not in allowed_areas]
-
-    if invalid_company_types:
-        return jsonify({'error': f'Ongeldige company_types: {invalid_company_types}.'}), 400
-    if invalid_areas:
-        return jsonify({'error': f'Ongeldige areas: {invalid_areas}.'}), 400
+    # Validatie van de inhoud van company_types en areas
+    if not all(isinstance(ct, str) and ct.strip() for ct in company_types):
+        return jsonify({'error': 'Alle company_types moeten niet-lege strings zijn.'}), 400
+    if not all(isinstance(ar, str) and ar.strip() for ar in areas):
+        return jsonify({'error': 'Alle areas moeten niet-lege strings zijn.'}), 400
 
     # Scrape bedrijven op basis van stad, branche, bedrijfstypes en gebieden
     companies_data = scrape_companies(city, industry, company_types, areas)
@@ -52,7 +44,11 @@ def search():
             new_company = Company(
                 name=company_info['name'],
                 contact=company_info['contact'],
-                contact_form_url=company_info.get('contact_form_url')  # Voeg contact_form_url toe
+                contact_form_url=company_info.get('contact_form_url'),
+                linkedin_profile=company_info.get('linkedin_profile'),
+                twitter_handle=company_info.get('twitter_handle'),
+                telegram_handle=company_info.get('telegram_handle'),
+                live_chat_url=company_info.get('live_chat_url')
             )
             db.session.add(new_company)
             db.session.commit()
@@ -60,14 +56,22 @@ def search():
                 'id': new_company.id,
                 'name': new_company.name,
                 'contact': new_company.contact,
-                'contact_form_url': new_company.contact_form_url  # Voeg contact_form_url toe
+                'contact_form_url': new_company.contact_form_url,
+                'linkedin_profile': new_company.linkedin_profile,
+                'twitter_handle': new_company.twitter_handle,
+                'telegram_handle': new_company.telegram_handle,
+                'live_chat_url': new_company.live_chat_url
             })
         else:
             companies.append({
                 'id': existing_company.id,
                 'name': existing_company.name,
                 'contact': existing_company.contact,
-                'contact_form_url': existing_company.contact_form_url  # Voeg contact_form_url toe
+                'contact_form_url': existing_company.contact_form_url,
+                'linkedin_profile': existing_company.linkedin_profile,
+                'twitter_handle': existing_company.twitter_handle,
+                'telegram_handle': existing_company.telegram_handle,
+                'live_chat_url': existing_company.live_chat_url
             })
 
     return jsonify({'companies': companies}), 200
@@ -87,20 +91,26 @@ def contact():
         return jsonify({'error': 'Bedrijf niet gevonden.'}), 404
 
     # Validatie van contact_method
-    allowed_methods = {'email', 'whatsapp', 'call', 'contact_form'}
+    allowed_methods = {'email', 'whatsapp', 'call', 'contact_form', 'linkedin', 'twitter', 'sms', 'telegram', 'live_chat'}
     if contact_method.lower() not in allowed_methods:
         return jsonify({'error': f'Ongeldige contactmethode: {contact_method}.'}), 400
 
     # Initiëer contact
     try:
         if contact_method.lower() == 'contact_form':
-            contact_url = company.contact_form_url
+            contact_url = company.live_chat_url or company.contact_form_url  # Gebruik live_chat_url indien beschikbaar
             if not contact_url:
-                return jsonify({'error': 'Geen contactformulier beschikbaar voor dit bedrijf.'}), 404
-            # Voor contact_form, retourneer de URL naar de frontend
-            return jsonify({'status': 'Contactformulier beschikbaar.', 'contact_form_url': contact_url}), 200
+                return jsonify({'error': 'Geen contactformulier of live chat beschikbaar voor dit bedrijf.'}), 404
+            # Voor contact_form of live_chat, retourneer de URL naar de frontend
+            return jsonify({'status': 'Contactformulier of Live Chat beschikbaar.', 'contact_url': contact_url}), 200
         else:
-            initiate_contact({'name': company.name, 'contact': company.contact}, contact_method.lower())
+            initiate_contact({
+                'name': company.name,
+                'contact': company.contact,
+                'linkedin_profile': company.linkedin_profile,
+                'twitter_handle': company.twitter_handle,
+                'telegram_handle': company.telegram_handle
+            }, contact_method.lower())
     except Exception as e:
         return jsonify({'error': f'Fout bij het initiëren van contact: {str(e)}'}), 500
 
